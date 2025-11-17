@@ -4,7 +4,11 @@ import 'package:my_anime_archive/models/anime.dart'; // Model Anime
 
 class SessionService {
   final String _sessionKey = 'user_session'; // Untuk menyimpan username
-  final String _favoritesKey = 'user_favorites'; // Untuk menyimpan list anime favorit
+  final String _favoritesKey =
+      'user_favorites'; // Untuk menyimpan list anime favorit
+  // --- TAMBAHKAN KEY BARU ---
+  final String _profileImageKey =
+      'user_profile_image'; // Untuk path foto profil
 
   // === Bagian Session Login ===
 
@@ -24,16 +28,32 @@ class SessionService {
   Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
+    // --- TAMBAHKAN INI SAAT LOGOUT ---
+    await prefs.remove(_profileImageKey); // Hapus path foto juga
   }
 
-  // === Bagian Anime Favorit ===
+  // --- FUNGSI BARU UNTUK FOTO PROFIL ---
+
+  // Simpan path foto
+  Future<void> saveProfileImagePath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_profileImageKey, path);
+  }
+
+  // Ambil path foto
+  Future<String?> getProfileImagePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_profileImageKey);
+  }
+
+  // === Bagian Anime Favorit (INI KODE LAMA TAPI WAJIB ADA) ===
 
   // Ambil daftar favorit
   Future<List<Anime>> getFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     // Ambil list of string JSON
     final List<String> favoritesJson = prefs.getStringList(_favoritesKey) ?? [];
-    
+
     // Ubah kembali dari string JSON ke objek Anime
     return favoritesJson.map((jsonString) {
       // Kita pakai json.decode di sini (dari 'dart:convert')
@@ -66,7 +86,8 @@ class SessionService {
     // Ubah list objek Anime menjadi list string JSON
     List<String> favoritesJson = favorites.map((fav) {
       // Kita pakai json.encode di sini (dari 'dart:convert')
-      return json.encode(fav.toJson()); // Gunakan method toJson() dari model Anime
+      return json
+          .encode(fav.toJson()); // Gunakan method toJson() dari model Anime
     }).toList();
 
     // Simpan kembali ke Shared Preferences

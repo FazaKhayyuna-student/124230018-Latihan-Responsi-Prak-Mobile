@@ -1,113 +1,112 @@
+import 'dart:io'; // Dibutuhkan untuk Tipe data 'File'
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // Untuk ambil gambar
+import 'package:path_provider/path_provider.dart'; // Untuk cari folder
+import 'package:path/path.dart' as p; // Untuk gabung path file
+
+// Import services dan models kita
 import 'package:my_anime_archive/models/anime.dart';
 import 'package:my_anime_archive/models/user.dart';
 import 'package:my_anime_archive/services/api_service.dart';
 import 'package:my_anime_archive/services/hive_service.dart';
 import 'package:my_anime_archive/services/session_service.dart';
 
-// 1. Menggunakan ChangeNotifier. Ini adalah inti dari 'Provider'
-//    Dia bisa 'memberitahu' UI "Hei, ada data berubah, update dirimu!"
 class MainViewModel extends ChangeNotifier {
-  // 2. Inisialisasi semua service (Manajer) kita
-  final ApiService _apiService = ApiService();
+  // 1. Inisialisasi semua service
   final HiveService _hiveService = HiveService();
+  final ApiService _apiService = ApiService();
   final SessionService _sessionService = SessionService();
 
-  // === Bagian State (Data yang akan dilihat UI) ===
-
-  // State untuk data user yang sedang login
+  // 2. Definisi State (Data)
   User? _currentUser;
-  User? get currentUser => _currentUser;
-
-  // State untuk daftar top anime dari API
+  bool _isLoading = false;
+  bool _isLoadingSession = true;
   List<Anime> _topAnimeList = [];
-  List<Anime> get topAnimeList => _topAnimeList;
-
-  // State untuk daftar anime favorit dari SharedPreferences
   List<Anime> _favoriteList = [];
+
+  // --- STATE BARU UNTUK FOTO PROFIL ---
+  String? _profileImagePath;
+
+  // 3. Getters (Agar UI hanya bisa 'membaca' data)
+  User? get currentUser => _currentUser;
+  bool get isLoading => _isLoading;
+  bool get isLoadingSession => _isLoadingSession;
+  List<Anime> get topAnimeList => _topAnimeList;
   List<Anime> get favoriteList => _favoriteList;
 
-  // State untuk status loading (misal saat login atau panggil API)
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  // --- GETTER BARU ---
+  String? get profileImagePath => _profileImagePath;
 
-  // State untuk mengecek sesi (saat app baru dibuka)
-  bool _isLoadingSession = true;
-  bool get isLoadingSession => _isLoadingSession;
+  // Constructor (dijalankan saat pertama kali dibuat)
+  MainViewModel() {
+    // Kita tidak bisa 'await' di constructor,
+    // jadi kita panggil 'checkLoginSession' di 'AuthWrapper'
+  }
 
-  // === Bagian Fungsi (Logika yang dipanggil UI) ===
+  // === FUNGSI LOGIKA (Otentikasi & Profil) ===
 
-  // Panggil ini saat aplikasi pertama kali dibuka
   Future<void> checkLoginSession() async {
-    _isLoadingSession = true;
+    _isLoadingSession = true; // Mulai loading
 
-    // Cek ke service session, ada username tersimpan?
-    String? loggedInUsername = await _sessionService.getSession();
+    final loggedInUsername = await _sessionService.getSession();
 
     if (loggedInUsername != null) {
-      // Jika ada, ambil data lengkap user dari Hive
       _currentUser = await _hiveService.getUserByUsername(loggedInUsername);
+      // --- TAMBAHKAN INI ---
+      // Ambil path foto saat sesi dicek
+      _profileImagePath = await _sessionService.getProfileImagePath();
     } else {
       _currentUser = null;
     }
 
-    _isLoadingSession = false;
-    notifyListeners(); // Beritahu UI bahwa pengecekan sesi selesai
+    _isLoadingSession = false; // Selesai loading
+    notifyListeners(); // Beritahu UI
   }
 
-  // Fungsi untuk Login
   Future<bool> loginUser(String username, String password) async {
     _isLoading = true;
-    notifyListeners(); // Tampilkan loading spinner di UI
+    notifyListeners();
 
-    User? user = await _hiveService.loginUser(username, password);
-
+    final user = await _hiveService.loginUser(username, password);
     if (user != null) {
-      // Jika login sukses
       _currentUser = user;
-      await _sessionService.saveSession(user.username); // Simpan sesi
+      await _sessionService.saveSession(user.username);
+      // Panggil checkLoginSession agar path foto juga ter-load
+      await checkLoginSession();
       _isLoading = false;
-      notifyListeners(); // Hilangkan loading, update UI
-      return true; // Kirim 'true' ke halaman Login
+      notifyListeners();
+      return true;
     }
 
-    // Jika login gagal
     _isLoading = false;
-    notifyListeners(); // Hilangkan loading
-    return false; // Kirim 'false' ke halaman Login
+    notifyListeners();
+    return false;
   }
 
-  // Fungsi untuk Register
-  // HAPUS INI:
-  // Future<bool> registerUser(String username, String password) async {
-  // GANTI DENGAN INI (tambah parameter):
   Future<bool> registerUser(
       String username, String password, String fullName, String nim) async {
     _isLoading = true;
     notifyListeners();
 
-    // HAPUS INI:
-    // bool success = await _hiveService.registerUser(username, password);
-    // GANTI DENGAN INI (teruskan data baru):
     bool success =
         await _hiveService.registerUser(username, password, fullName, nim);
 
     _isLoading = false;
     notifyListeners();
-    return success; // Kirim 'true'/'false' ke halaman Register
+    return success;
   }
 
-  // Fungsi untuk Logout
   Future<void> logout() async {
-    await _sessionService.clearSession(); // Hapus sesi
-    _currentUser = null; // Hapus data user
-    _favoriteList = []; // Kosongkan favorit saat logout
+    await _sessionService.clearSession(); // Ini sudah menghapus path foto juga
+    _currentUser = null;
+    // --- TAMBAHKAN INI ---
+    _profileImagePath = null; // Hapus path foto dari state
+    _favoriteList = []; // Kosongkan favorit
+    _topAnimeList = []; // Kosongkan list anime
     notifyListeners(); // Update UI (akan kembali ke halaman login)
   }
 
-  // --- FUNGSI BARU UNTUK UPDATE PROFILE ---
   Future<void> updateUserProfile(String newFullName, String newNim) async {
-    // Safety check
     if (_currentUser == null) return;
 
     // Panggil service untuk menyimpan ke Hive
@@ -121,43 +120,69 @@ class MainViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Fungsi mengambil Top Anime dari API
+  // --- FUNGSI BARU UNTUK MENGAMBIL FOTO ---
+  Future<void> pickAndSaveProfileImage(ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    // 1. Ambil gambar (dari kamera atau galeri)
+    final XFile? image = await picker.pickImage(source: source);
+
+    if (image == null) {
+      // User membatalkan pemilihan
+      return;
+    }
+
+    // 2. Dapatkan folder penyimpanan aplikasi
+    final Directory appDirectory = await getApplicationDocumentsDirectory();
+    // 3. Buat nama file yang unik (misal: 'profile_pic_timestamp.jpg')
+    final String fileName =
+        'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final String permanentPath = p.join(appDirectory.path, fileName);
+
+    // 4. Salin file sementara dari 'image_picker' ke path permanen
+    final File imageFile = File(image.path);
+    await imageFile.copy(permanentPath);
+
+    // 5. Simpan path permanen ke SharedPreferences
+    await _sessionService.saveProfileImagePath(permanentPath);
+
+    // 6. Update state di ViewModel
+    _profileImagePath = permanentPath;
+    notifyListeners(); // Beritahu UI untuk update foto
+  }
+
+  // === FUNGSI LOGIKA (Anime & Favorit) ===
+
   Future<void> fetchTopAnime() async {
     _isLoading = true;
     notifyListeners();
     try {
       _topAnimeList = await _apiService.getTopAnime();
     } catch (e) {
-      print(e); // Tangani error
+      print(e); // Handle error
     }
     _isLoading = false;
     notifyListeners();
   }
 
-  // Fungsi mengambil data Favorit dari SharedPreferences
   Future<void> loadFavorites() async {
-    // Tidak perlu loading indicator agar tidak mengganggu UI
     _favoriteList = await _sessionService.getFavorites();
     notifyListeners();
   }
 
-  // Fungsi Cek apakah anime favorit (sinkron/langsung)
-  // Ini penting untuk icon 'love' di UI
-  bool isFavorite(int animeId) {
-    return _favoriteList.any((anime) => anime.malId == animeId);
+  Future<void> toggleFavorite(Anime anime) async {
+    // Toggle di SharedPreferences
+    await _sessionService.toggleFavorite(anime);
+
+    // Update state favorit secara lokal
+    if (isFavorite(anime.malId)) {
+      _favoriteList.removeWhere((fav) => fav.malId == anime.malId);
+    } else {
+      _favoriteList.add(anime);
+    }
+    notifyListeners(); // Update UI (terutama icon love)
   }
 
-  // Fungsi untuk menambah/menghapus favorit (Toggle)
-  Future<void> toggleFavorite(Anime anime) async {
-    // Panggil service untuk menyimpan/menghapus
-    bool isNowFavorite = await _sessionService.toggleFavorite(anime);
-
-    // Update state di ViewModel ini secara manual agar UI reaktif
-    if (isNowFavorite) {
-      _favoriteList.add(anime);
-    } else {
-      _favoriteList.removeWhere((fav) => fav.malId == anime.malId);
-    }
-    notifyListeners(); // Beritahu UI (icon love) untuk update
+  bool isFavorite(int animeId) {
+    return _favoriteList.any((anime) => anime.malId == animeId);
   }
 }

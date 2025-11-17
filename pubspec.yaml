@@ -34,6 +34,14 @@ dependencies:
 
   # 6. Ikon standar
   cupertino_icons: ^1.0.2
+  # --- TAMBAHKAN 3 PAKET INI ---
+  # 1. Untuk memilih gambar dari kamera/galeri
+  image_picker: ^1.0.7
+  # 2. Untuk menemukan folder penyimpanan di HP
+  path_provider: ^2.1.2
+  # 3. Untuk menggabungkan path file
+  path: ^1.8.3
+  # --- AKHIR DARI TAMBAHAN ---
 
 dev_dependencies:
   flutter_test:

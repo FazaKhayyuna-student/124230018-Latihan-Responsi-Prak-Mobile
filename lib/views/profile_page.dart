@@ -1,4 +1,6 @@
+import 'dart:io'; // <-- TAMBAHKAN IMPORT INI
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // <-- TAMBAHKAN IMPORT INI
 import 'package:provider/provider.dart';
 import 'package:my_anime_archive/viewmodels/main_view_model.dart';
 
@@ -10,13 +12,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Controller tetap dibutuhkan, tapi untuk modal
+  // Controller untuk modal 'Edit Profile' (Teks)
   late TextEditingController _fullNameController;
   late TextEditingController _nimController;
 
   @override
   void initState() {
     super.initState();
+    // Inisialisasi controller dengan data user saat ini
     final user =
         Provider.of<MainViewModel>(context, listen: false).currentUser!;
     _fullNameController = TextEditingController(text: user.fullName);
@@ -32,11 +35,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // --- FUNGSI-FUNGSI LOGIKA ---
 
+  // Fungsi Logout
   void _handleLogout(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: false).logout();
   }
 
-  // Fungsi ini dipanggil oleh tombol 'Simpan' di dalam modal
+  // Fungsi Update Teks Profil (dari modal)
   void _handleUpdateProfile(BuildContext modalContext) {
     final newName = _fullNameController.text;
     final newNim = _nimController.text;
@@ -66,9 +70,46 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- FUNGSI UNTUK TAMPILAN (UI) ---
+  // --- FUNGSI-FUNGSI UNTUK TAMPILAN (UI) ---
 
-  // FUNGSI BARU: Untuk menampilkan modal pop-up
+  // FUNGSI BARU: Untuk menampilkan modal pilih 'Kamera' atau 'Galeri'
+  void _showImageSourceModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Ambil dari Kamera"),
+                onTap: () {
+                  Navigator.pop(modalContext); // Tutup modal
+                  Provider.of<MainViewModel>(context, listen: false)
+                      .pickAndSaveProfileImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Pilih dari Galeri"),
+                onTap: () {
+                  Navigator.pop(modalContext); // Tutup modal
+                  Provider.of<MainViewModel>(context, listen: false)
+                      .pickAndSaveProfileImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // FUNGSI LAMA: Untuk modal 'Edit Profile' (Teks)
   void _showEditProfileModal(BuildContext context) {
     // Pastikan controller berisi data terbaru sebelum modal tampil
     final user =
@@ -78,14 +119,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showModalBottomSheet(
       context: context,
-      // Penting agar modal tidak tertutup keyboard
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (modalContext) {
         return Padding(
-          // Padding ini akan 'mendorong' modal ke atas keyboard
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(modalContext).viewInsets.bottom,
             left: 20,
@@ -93,7 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
             top: 20,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Agar tinggi modal secukupnya
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -146,50 +185,79 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     // 'watch' akan otomatis update UI saat data user berubah
-    final user = context.watch<MainViewModel>().currentUser!;
+    final viewModel = context.watch<MainViewModel>();
+    final user = viewModel.currentUser!;
+    // --- AMBIL PATH FOTO ---
+    final profileImagePath = viewModel.profileImagePath;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        title: const Text("Profile"),
         backgroundColor: Colors.white,
         elevation: 1,
-        title: Text(
-          "Profile",
-          style: TextStyle(
-            color: Colors.grey[900],
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
-        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: Colors.black87),
-            tooltip: "Edit Profile",
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: "Edit Info Teks", // Tooltip diubah
             onPressed: () => _showEditProfileModal(context),
           ),
         ],
       ),
-      // 2. KEMBALIKAN BODY JADI 'DISPLAY-ONLY' (LEBIH BERSIH)
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.purple,
-              child: Icon(Icons.person, size: 50, color: Colors.white),
+            // --- GANTI CIRCLEAVATAR STATIS ---
+            // HAPUS INI:
+            // const CircleAvatar(
+            //   radius: 50,
+            //   backgroundColor: Colors.purple,
+            //   child: Icon(Icons.person, size: 50, color: Colors.white),
+            // ),
+
+            // --- GANTI DENGAN STACK INI ---
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.grey[200],
+                  // Tampilkan foto DARI FILE jika ada,
+                  // jika tidak, tampilkan ikon
+                  backgroundImage: profileImagePath != null
+                      ? FileImage(File(profileImagePath))
+                      : null,
+                  child: profileImagePath == null
+                      ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                      : null,
+                ),
+                // Tombol 'Edit Foto' di atas foto
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.purple,
+                    child: IconButton(
+                      icon: const Icon(Icons.camera_alt,
+                          size: 18, color: Colors.white),
+                      onPressed: () => _showImageSourceModal(context),
+                      tooltip: "Ganti Foto Profil",
+                    ),
+                  ),
+                ),
+              ],
             ),
+            // --- AKHIR DARI STACK ---
+
             const SizedBox(height: 20),
 
-            // Tampilan info statis
+            // Tampilan info statis (Teks)
             _buildProfileInfo("Nama Lengkap", user.fullName),
             _buildProfileInfo("NIM", user.nim),
             _buildProfileInfo("Username", user.username), // Username tetap
 
             const Spacer(), // Dorong tombol logout ke bawah
-
-            // 3. HAPUS TOMBOL UPDATE DARI SINI
 
             // Tombol Logout (tetap)
             SizedBox(
