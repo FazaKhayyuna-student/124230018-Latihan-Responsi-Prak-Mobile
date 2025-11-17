@@ -1,0 +1,58 @@
+name: my_anime_archive
+description: Aplikasi Flutter untuk Latihan Responsi Praktikum Mobile SI-B.
+publish_to: "none" # Hapus baris ini jika Anda ingin mempublikasikan ke pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0" # Menggunakan SDK versi 3.0.0 atau lebih baru
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 1. State Management (Sesuai soal, kita butuh ini untuk mengelola state)
+  # Kita akan gunakan Provider karena sederhana dan efektif
+  provider: ^6.1.1
+
+  # 2. Local Database (Untuk data User: Register/Login)
+  # Sesuai soal, kita menggunakan HIVE
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # 3. Session & Storage (Untuk session login & data favorit)
+  # Sesuai soal, kita menggunakan Shared Preferences
+  shared_preferences: ^2.2.2
+
+  # 4. API Client (Untuk mengambil data dari Jikan API)
+  # Dio adalah HTTP client yang powerfull, bagus untuk handle API
+  dio: ^5.4.0
+
+  # 5. Image Helper (Untuk caching gambar poster dari API)
+  # Ini penting agar list/grid berjalan mulus
+  cached_network_image: ^3.3.0
+
+  # 6. Ikon standar
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+  # 7. Code Generators (Dibutuhkan oleh HIVE)
+  # Ini akan men-generate file adapter untuk model User kita
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.8
+
+# Konfigurasi Flutter
+flutter:
+  uses-material-design: true
+
+  # Jika Anda ingin menambahkan font kustom (opsional)
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700
